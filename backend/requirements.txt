@@ -1,8 +1,10 @@
 fastapi
-uvicorn
+uvicorn[standard]
 pydantic
 pydantic-settings
+python-dotenv
 httpx
 google-genai
 firebase-admin
+google-cloud-firestore
 resend
