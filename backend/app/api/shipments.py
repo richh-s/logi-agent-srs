@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from google.cloud.exceptions import NotFound
 from app.models.domain import ShipmentUpdate
 from app.core.config import settings
-from app.db import firestore as db
+from app.db import supabase_db as db
 
 router = APIRouter()
 
