@@ -29,6 +29,20 @@ def get_active_shipments(limit: int = 50) -> list[dict]:
     )
     return response.data
 
+def get_planner_queue(limit: int = 50) -> list[dict]:
+    """Returns only shipments that are NOT acknowledged or dismissed."""
+    db = get_db()
+    response = (
+        db.table("shipments")
+        .select("*")
+        .eq("manual_status", "Active")
+        .neq("status", "Delivered")
+        .order("last_checked_at")
+        .limit(limit)
+        .execute()
+    )
+    return response.data
+
 def create_shipment(tracking_number: str, courier: str) -> str:
     db = get_db()
     response = db.table("shipments").insert({
@@ -45,7 +59,11 @@ def get_shipment_by_id(shipment_id: str) -> dict | None:
     response = db.table("shipments").select("*").eq("id", shipment_id).execute()
     return response.data[0] if response.data else None
 
-def update_shipment_state(shipment_id: str, evaluation: JudgeEvaluation, new_status: str) -> bool:
+def delete_shipment(shipment_id: str) -> None:
+    db = get_db()
+    db.table("shipments").delete().eq("id", shipment_id).execute()
+
+def update_shipment_state(shipment_id: str, evaluation: JudgeEvaluation, new_status: str, city: str = None, state: str = None, dest_city: str = None, dest_state: str = None) -> bool:
     db = get_db()
     current = get_shipment_by_id(shipment_id) or {}
     risk_changed = current.get("current_risk_level") != evaluation.risk_level
@@ -57,11 +75,14 @@ def update_shipment_state(shipment_id: str, evaluation: JudgeEvaluation, new_sta
             "current_risk_level": evaluation.risk_level,
             "status": new_status,
         })
-        db.table("shipments").update(update_payload).eq("id", shipment_id).execute()
-        return True
     
+    if city and state and dest_city and dest_state:
+        update_payload["current_location"] = f"{city}, {state} ➔ {dest_city}, {dest_state}"
+    elif city and state:
+        update_payload["current_location"] = f"{city}, {state}"
+
     db.table("shipments").update(update_payload).eq("id", shipment_id).execute()
-    return False
+    return risk_changed or status_changed
 
 def mark_last_notified(shipment_id: str) -> None:
     db = get_db()
@@ -101,7 +122,6 @@ def create_alert(shipment_id: str, evaluation: JudgeEvaluation) -> str:
         "message": evaluation.reasoning_trace,
         "mitigation_suggestion": evaluation.mitigation_suggestion,
         "risk_level": evaluation.risk_level,
-        "delay_probability": evaluation.delay_probability,
         "status": "Active",
     }).execute()
     return response.data[0]["id"]
@@ -111,6 +131,9 @@ def get_all_alerts() -> list[dict]:
     response = db.table("alerts").select("*").order("created_at", desc=True).execute()
     return response.data
 
-def update_alert_status(alert_id: str, status: str) -> None:
+def update_alert_status(alert_id: str, status: str, notes: str = None) -> None:
     db = get_db()
-    db.table("alerts").update({"status": status}).eq("id", alert_id).execute()
+    data = {"status": status}
+    if notes:
+        data["notes"] = notes
+    db.table("alerts").update(data).eq("id", alert_id).execute()

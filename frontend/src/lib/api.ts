@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -36,14 +36,23 @@ export const getAlerts = async () => {
   return response.data;
 };
 
-export const updateAlertStatus = async (alertId: string, status: string) => {
+export const updateAlertStatus = async (alertId: string, status: string, notes?: string) => {
   const response = await api.post(`/alerts/${alertId}/action`, null, {
-    params: { status }
+    params: { status, notes }
   });
   return response.data;
 };
 
-export const runOrchestrator = async () => {
-  const response = await api.post("/orchestrator/run");
+export const deleteShipment = async (shipmentId: string) => {
+  const response = await api.delete(`/shipments/${shipmentId}`);
+  return response.data;
+};
+
+export const runOrchestrator = async (shipmentId?: string) => {
+  const secret = process.env.NEXT_PUBLIC_INTERNAL_SECRET || "dev-secret-123";
+  const response = await api.post("/orchestrator/run", null, {
+    headers: { "X-Internal-Secret": secret },
+    params: { shipment_id: shipmentId }
+  });
   return response.data;
 };
