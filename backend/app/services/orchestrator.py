@@ -36,6 +36,15 @@ def _should_send_alert(shipment: dict, evaluation: JudgeEvaluation) -> bool:
     if last_notified_at is None:
         return evaluation.risk_level == "High"
 
+    if isinstance(last_notified_at, str):
+        try:
+            last_notified_at = datetime.fromisoformat(last_notified_at.replace("Z", "+00:00"))
+        except ValueError:
+            return evaluation.risk_level == "High"
+            
+    if last_notified_at.tzinfo is None:
+        last_notified_at = last_notified_at.replace(tzinfo=timezone.utc)
+
     hours_since_last_alert = (
         datetime.now(timezone.utc) - last_notified_at
     ).total_seconds() / 3600
