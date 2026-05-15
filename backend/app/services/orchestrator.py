@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 from app.core.config import settings
 from app.services.worker import collect_batch_contexts
@@ -11,7 +12,6 @@ ALERT_COOLDOWN_HOURS = 24
 RISK_RANK = {"Low": 0, "Medium": 1, "High": 2}
 
 # --- MOCK SHIPMENT QUEUE ---
-# Used when MOCK_MODE=True. Simulates a Firestore active shipments query.
 MOCK_SHIPMENTS = [
     {
         "id": "shipment_001",
@@ -65,7 +65,7 @@ async def run_orchestration_cycle(recipient_email: str, target_shipment_id: str 
     print("\n[ORCHESTRATOR] 🔄 Starting monitoring cycle...")
     action_log = []
 
-    # --- STEP 1: PLANNER — Load active shipment queue ---
+    # --- STEP 1: PLANNER ---
     if settings.MOCK_MODE:
         active_shipments = MOCK_SHIPMENTS
     elif target_shipment_id:
@@ -80,21 +80,16 @@ async def run_orchestration_cycle(recipient_email: str, target_shipment_id: str 
 
     print(f"[PLANNER] 📋 Found {len(active_shipments)} active shipment(s) to monitor.")
 
-    # --- STEP 2: WORKER — Concurrent async 17TRACK + weather fetch ---
-    print("[WORKER] 🌐 Fetching 17TRACK data and weather concurrently...")
+    # --- STEP 2: WORKER ---
     worker_results = await collect_batch_contexts(active_shipments)
 
-    # --- STEP 3: LOG RAW 17TRACK RESPONSES TO THOUGHT LOG (FR-7) ---
-    # Extracting contexts for the Judge while persisting raw API data for auditability
+    # --- STEP 3: LOG RAW DATA (FR-7) ---
     contexts: list[AgentInputContext] = []
-    raw_map: dict[str, str] = {}  # tracking_number -> raw_response
-
     for result in worker_results:
         context: AgentInputContext = result["context"]
         raw_response: str = result["raw_response"]
         shipment_id: str = result["shipment_id"]
         contexts.append(context)
-        raw_map[context.tracking_number] = raw_response
 
         if not settings.MOCK_MODE and shipment_id:
             db.write_agent_log(
@@ -103,8 +98,7 @@ async def run_orchestration_cycle(recipient_email: str, target_shipment_id: str 
                 reasoning=raw_response,
             )
 
-    # --- STEP 4: JUDGE — Single batched Gemini evaluation ---
-    print("[JUDGE] 🧠 Sending batch to Gemini for risk assessment...")
+    # --- STEP 4: JUDGE ---
     evaluations = await evaluate_batch(contexts)
 
     # --- STEP 5: ACTION & PERSISTENCE ---
@@ -116,19 +110,15 @@ async def run_orchestration_cycle(recipient_email: str, target_shipment_id: str 
         context = context_map.get(evaluation.tracking_number)
         shipment_id = shipment.get("id")
 
-        print(f"\n[RESULT] Shipment {evaluation.tracking_number}: "
-              f"Risk={evaluation.risk_level}, Confidence={evaluation.confidence}, "
-              f"Delay Probability={evaluation.delay_probability}%")
+        print(f"\n[RESULT] {evaluation.tracking_number}: Risk={evaluation.risk_level}")
 
         entry = {
             "tracking_number": evaluation.tracking_number,
             "risk_level": evaluation.risk_level,
-            "confidence": evaluation.confidence,
             "action_taken": "none",
         }
 
         if evaluation.confidence == "Low":
-            print(f"[JUDGE] ⚠️  Low confidence for {evaluation.tracking_number} — logging error, no alert.")
             entry["action_taken"] = "logged_retrieval_error"
             if not settings.MOCK_MODE and shipment_id:
                 db.write_agent_log(
@@ -138,7 +128,6 @@ async def run_orchestration_cycle(recipient_email: str, target_shipment_id: str 
                 )
 
         elif _should_send_alert(shipment, evaluation):
-            print(f"[ACTION] 🚨 High risk confirmed. Triggering alert for {evaluation.tracking_number}...")
             alert_sent = send_high_risk_alert(evaluation, recipient_email)
             entry["action_taken"] = "alert_sent"
 
@@ -153,28 +142,33 @@ async def run_orchestration_cycle(recipient_email: str, target_shipment_id: str 
                 db.write_agent_log(
                     shipment_id=shipment_id,
                     action="High Risk Alert Sent",
-                    reasoning=evaluation.reasoning_trace,
+                    reasoning=f"Agent confirmed high risk disruption. Reasoning: {evaluation.reasoning_trace}",
                 )
                 if alert_sent:
                     db.mark_last_notified(shipment_id)
 
         else:
-            print(f"[SUPPRESSION] ✅ No alert needed for {evaluation.tracking_number}.")
+            print(f"[SUPPRESSION] ✅ Alert bypassed for {evaluation.tracking_number}.")
             entry["action_taken"] = "suppressed"
 
             if not settings.MOCK_MODE and shipment_id:
-                changed = db.update_shipment_state(
+                # Log the suppression reason for visibility (Auditability)
+                supp_reason = "Risk level unchanged or alert cooldown active."
+                if shipment.get("manual_status") == "Acknowledged":
+                    supp_reason = "Shipment manually acknowledged by operator."
+                
+                db.write_agent_log(
+                    shipment_id=shipment_id,
+                    action="Alert Bypassed",
+                    reasoning=f"Agent bypassed notification to prevent alert fatigue. Reason: {supp_reason}"
+                )
+
+                db.update_shipment_state(
                     shipment_id, evaluation, 
                     new_status=shipment.get("status", "InTransit"),
                     dest_city=context.dest_city if context else None,
                     dest_state=context.dest_state if context else None
                 )
-                if changed:
-                    db.write_agent_log(
-                        shipment_id=shipment_id,
-                        action="Risk Level Updated",
-                        reasoning=evaluation.reasoning_trace,
-                    )
 
         action_log.append(entry)
 

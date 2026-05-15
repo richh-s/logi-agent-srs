@@ -63,46 +63,49 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-blue-100">
-      <div className="max-w-[1600px] mx-auto p-4 md:p-6 space-y-6">
+    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-blue-100 font-sans">
+      <div className="max-w-[1600px] mx-auto p-4 md:p-10 space-y-8">
         
         {/* Professional Header */}
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pb-6">
-          <div className="flex items-center gap-2">
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 pb-10 border-b border-slate-200">
+          <div className="flex items-center gap-4">
             <div>
-              <h1 className="text-3xl font-black tracking-tighter text-slate-900">
+              <h1 className="text-5xl font-black tracking-tight text-slate-900">
                 LOGI<span className="text-blue-600">AGENT</span>
               </h1>
-              <div className="flex items-center gap-3 mt-1 text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                <span className="flex items-center gap-1"><span className="w-1 h-1 bg-green-500 rounded-full animate-pulse"></span> Gemini 1.5 Flash</span>
-                <span className="w-px h-2 bg-slate-200"></span>
-                <span className="flex items-center gap-1">Supabase DB: Connected</span>
+              <div className="flex items-center gap-4 mt-3 text-sm text-slate-500 font-bold uppercase tracking-widest">
+                <span className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></span> 
+                  Gemini 1.5 Flash
+                </span>
+                <span className="w-px h-4 bg-slate-300"></span>
+                <span className="text-blue-600">Supabase Connected</span>
               </div>
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex flex-col items-end mr-4">
-              <span className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">Next Scheduled Sync</span>
-              <span className="text-sm font-mono text-slate-600">14:00:00 UTC</span>
+          <div className="flex items-center gap-8">
+            <div className="hidden lg:flex flex-col items-end">
+              <span className="text-xs text-slate-400 uppercase font-black tracking-[0.2em] mb-1">Network Status</span>
+              <span className="text-lg font-mono font-bold text-slate-700">OPTIMAL</span>
             </div>
             <Button 
               onClick={() => handleRunOrchestrator()} 
               disabled={orchestratorRunning}
-              className={`px-8 h-12 rounded-xl font-bold transition-all ${
+              className={`px-12 h-16 rounded-[1.5rem] font-black transition-all text-sm uppercase tracking-[0.2em] shadow-2xl ${
                 orchestratorRunning 
                   ? "bg-slate-100 text-slate-400 cursor-not-allowed" 
-                  : "bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-600/20"
+                  : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/30"
               }`}
             >
               {orchestratorRunning ? (
-                <span className="flex items-center gap-2 uppercase text-xs tracking-widest">
-                  <div className="w-3 h-3 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
+                <span className="flex items-center gap-4">
+                  <div className="w-5 h-5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
                   Syncing...
                 </span>
               ) : (
-                <span className="flex items-center gap-2 uppercase text-xs tracking-widest">
-                  <Play className="w-3 h-3 fill-current" />
+                <span className="flex items-center gap-4">
+                  <Play className="w-5 h-5 fill-current" />
                   Initiate Cycle
                 </span>
               )}
@@ -111,21 +114,21 @@ export default function Home() {
         </header>
 
         {/* Main Dashboard Grid */}
-        <main className="grid grid-cols-12 gap-6">
+        <main className="grid grid-cols-12 gap-8">
           
           {/* Left Column: Intake & Action Center */}
-          <div className="col-span-12 lg:col-span-4 space-y-6">
-            <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 overflow-hidden">
+          <div className="col-span-12 lg:col-span-4 space-y-8">
+            <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/60 overflow-hidden">
               <IntakeForm onShipmentAdded={fetchDashboardData} />
             </div>
-            <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 h-[calc(100vh-450px)] min-h-[400px] overflow-hidden">
+            <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/60 h-[calc(100vh-500px)] min-h-[450px] overflow-hidden">
               <ActionCenter alerts={alerts} onAlertUpdated={fetchDashboardData} />
             </div>
           </div>
 
           {/* Right Column: Overview & Intelligence */}
-          <div className="col-span-12 lg:col-span-8 space-y-6">
-            <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 h-[450px] overflow-hidden">
+          <div className="col-span-12 lg:col-span-8 space-y-8">
+            <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/60 h-[500px] overflow-hidden">
               <ShipmentOverview 
                 shipments={shipments} 
                 activeId={activeShipmentId} 
@@ -135,15 +138,15 @@ export default function Home() {
               />
             </div>
             
-            <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 h-[calc(100vh-650px)] min-h-[300px] overflow-hidden">
+            <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/60 h-[calc(100vh-750px)] min-h-[350px] overflow-hidden">
               <ThoughtLog activeShipmentId={activeShipmentId} />
             </div>
           </div>
 
         </main>
 
-        <footer className="pt-8 pb-4 text-center">
-          <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em]">
+        <footer className="pt-10 pb-6 text-center border-t border-slate-100">
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-[0.3em]">
             Autonomous Logistics Intelligence System &copy; 2026 
           </p>
         </footer>

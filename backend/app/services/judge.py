@@ -52,10 +52,9 @@ def _build_prompt(contexts: list[AgentInputContext]) -> str:
 def _parse_response(raw: str, contexts: list[AgentInputContext]) -> list[JudgeEvaluation]:
     """Parses the raw JSON array response into JudgeEvaluation objects."""
     try:
-        # Strip markdown code fences if present
         cleaned = raw.strip()
         if cleaned.startswith("```"):
-            cleaned = cleaned.split("\n", 1)[1]  # remove first line
+            cleaned = cleaned.split("\n", 1)[1]
         if cleaned.endswith("```"):
             cleaned = cleaned.rsplit("```", 1)[0]
         cleaned = cleaned.strip()
@@ -65,8 +64,7 @@ def _parse_response(raw: str, contexts: list[AgentInputContext]) -> list[JudgeEv
             data = [data]
         return [JudgeEvaluation(**item) for item in data]
     except (json.JSONDecodeError, TypeError, ValueError) as e:
-        print(f"[JUDGE] ⚠️ Parse error: {e}. Raw: {raw[:200]}")
-        # If response is malformed, return Low Confidence for all shipments
+        print(f"[JUDGE] ⚠️ Parse error: {e}")
         return [
             JudgeEvaluation(
                 tracking_number=ctx.tracking_number,
@@ -74,7 +72,7 @@ def _parse_response(raw: str, contexts: list[AgentInputContext]) -> list[JudgeEv
                 confidence="Low",
                 delay_probability=0,
                 reasoning_trace="Judge failed to parse AI response. Defaulting to Low risk.",
-                mitigation_suggestion="Retry the assessment. If the issue persists, manually review the shipment.",
+                mitigation_suggestion="Retry the assessment.",
             )
             for ctx in contexts
         ]
@@ -82,17 +80,21 @@ def _parse_response(raw: str, contexts: list[AgentInputContext]) -> list[JudgeEv
 
 async def evaluate_batch(contexts: list[AgentInputContext]) -> list[JudgeEvaluation]:
     """
-    The Judge: sends a batched prompt to an LLM via OpenRouter and returns
-    a structured list of JudgeEvaluation objects — one per shipment.
-    Falls back to Gemini direct if OpenRouter key is not set.
+    The Judge: sends a batched prompt to an LLM.
+    1. Tries OpenRouter first.
+    2. If OpenRouter fails or is unavailable, fails over to Gemini SDK directly.
     """
     prompt = _build_prompt(contexts)
 
-    # Use OpenRouter if key is available
+    # 1. Try OpenRouter
     if settings.OPENROUTER_API_KEY:
-        return await _call_openrouter(prompt, contexts)
+        results = await _call_openrouter(prompt, contexts)
+        # Check if we got the fallback "unavailable" message
+        if results and "unavailable" not in results[0].reasoning_trace.lower():
+            return results
 
-    # Fallback to Google Gemini SDK
+    # 2. Failover to Google Gemini SDK
+    print("[JUDGE] 🔄 Failing over to Gemini Direct...")
     return await _call_gemini_direct(prompt, contexts)
 
 
@@ -111,69 +113,45 @@ async def _call_openrouter(prompt: str, contexts: list[AgentInputContext]) -> li
         "temperature": 0.1,
     }
 
-    max_retries = 3
+    max_retries = 2
     for attempt in range(max_retries):
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.post(OPENROUTER_URL, json=payload, headers=headers)
                 resp.raise_for_status()
                 data = resp.json()
-
                 content = data["choices"][0]["message"]["content"]
-                print(f"[JUDGE] ✅ OpenRouter response received ({len(content)} chars)")
                 return _parse_response(content, contexts)
-
         except Exception as e:
-            error_str = str(e)
-            if "429" in error_str:
-                wait_time = (attempt + 1) * 10
-                print(f"[JUDGE] ⏳ Rate limited (attempt {attempt+1}/{max_retries}). Retrying in {wait_time}s...")
-                await asyncio.sleep(wait_time)
-            else:
-                print(f"[JUDGE] ❌ OpenRouter error: {error_str}")
-                break
+            print(f"[JUDGE] ⏳ OpenRouter attempt {attempt+1} failed: {e}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2)
 
-    # Fallback on failure
-    print("[JUDGE] ⚠️ OpenRouter failed. Returning fallback assessments.")
     return _fallback(contexts)
 
 
 async def _call_gemini_direct(prompt: str, contexts: list[AgentInputContext]) -> list[JudgeEvaluation]:
     """Fallback: calls Google Gemini SDK directly."""
-    from google import genai
-    from google.genai import types
-
-    client = genai.Client(api_key=settings.GEMINI_API_KEY)
-
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            response = client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=SYSTEM_INSTRUCTION,
-                    response_mime_type="application/json",
-                    temperature=0.1,
-                ),
-            )
-            return _parse_response(response.text, contexts)
-        except Exception as e:
-            error_str = str(e)
-            if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
-                wait_time = (attempt + 1) * 12
-                print(f"[JUDGE] ⏳ Gemini rate limited (attempt {attempt+1}/{max_retries}). Retrying in {wait_time}s...")
-                await asyncio.sleep(wait_time)
-            else:
-                print(f"[JUDGE] ❌ Gemini error: {error_str}")
-                break
-
-    print("[JUDGE] ⚠️ Gemini quota exhausted. Returning fallback assessments.")
-    return _fallback(contexts)
+    try:
+        from google import genai
+        from google.genai import types
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_INSTRUCTION,
+                response_mime_type="application/json",
+                temperature=0.1,
+            ),
+        )
+        return _parse_response(response.text, contexts)
+    except Exception as e:
+        print(f"[JUDGE] ❌ Gemini Direct error: {e}")
+        return _fallback(contexts)
 
 
 def _fallback(contexts: list[AgentInputContext]) -> list[JudgeEvaluation]:
-    """Returns safe Low-confidence evaluations when AI is unavailable."""
     return [
         JudgeEvaluation(
             tracking_number=ctx.tracking_number,

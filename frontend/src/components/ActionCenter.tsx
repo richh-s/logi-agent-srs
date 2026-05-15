@@ -4,8 +4,8 @@ import { useState } from "react";
 import { updateAlertStatus } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ShieldAlert, Zap, ArrowUpRight } from "lucide-react";
 
 export function ActionCenter({ alerts, onAlertUpdated }: { alerts: any[], onAlertUpdated: () => void }) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -31,83 +31,92 @@ export function ActionCenter({ alerts, onAlertUpdated }: { alerts: any[], onAler
   const activeAlerts = alerts.filter(a => a.status === "Active");
 
   return (
-    <Card className="h-full border-none bg-transparent flex flex-col shadow-none">
-      <CardHeader className="px-6 py-4 flex flex-row items-center justify-between">
+    <Card className="h-full border-none bg-slate-50 flex flex-col shadow-none overflow-hidden">
+      <CardHeader className="px-6 py-5 flex flex-row items-center justify-between border-b border-slate-200 bg-white shadow-sm">
         <div>
-          <CardTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+          <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2 uppercase tracking-wide">
+            <ShieldAlert className="w-5 h-5 text-red-600 animate-pulse" />
             Critical Exceptions
           </CardTitle>
-          <CardDescription className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Manual Resolution Required</CardDescription>
+          <CardDescription className="text-xs text-slate-500 font-bold mt-1">Manual Resolution Required</CardDescription>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-red-100 rounded-full">
+          <Zap className="w-3.5 h-3.5 text-red-600 fill-current" />
+          <span className="text-xs font-bold text-red-700">{activeAlerts.length}</span>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 overflow-hidden px-4 pb-4">
-        <ScrollArea className="h-full pr-4">
-          <div className="flex flex-col gap-4 mt-4">
+      
+      <CardContent className="flex-1 overflow-hidden p-0">
+        <ScrollArea className="h-full">
+          <div className="p-5 space-y-6">
             {activeAlerts.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-12 opacity-30 text-center">
-                <span className="text-4xl mb-2 text-slate-900">🛡️</span>
-                <p className="text-xs font-mono uppercase tracking-widest text-slate-900">System Perimeter Secure<br/>No Active Breaches</p>
+              <div className="flex flex-col items-center justify-center py-24 opacity-40 text-center">
+                <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center mb-5">
+                  <ShieldAlert className="w-8 h-8 text-slate-400" />
+                </div>
+                <p className="text-sm font-bold uppercase tracking-widest text-slate-900">Perimeter Secure</p>
+                <p className="text-xs text-slate-500 mt-2">No active breaches detected</p>
               </div>
             )}
+            
             {activeAlerts.map(alert => (
-              <div key={alert.id} className="relative overflow-hidden rounded-2xl bg-slate-50/50 p-5 space-y-4">
-                {/* Status Bar */}
-                <div className="flex justify-between items-start">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-black text-slate-900 font-mono tracking-tighter">{alert.tracking_number}</h4>
-                      <div className="px-1.5 py-0.5 bg-red-600 text-[9px] font-bold text-white rounded uppercase">
+              <div key={alert.id} className="group relative overflow-hidden rounded-2xl bg-white border border-slate-200 shadow-md transition-all hover:shadow-xl p-6">
+                <div className="flex justify-between items-start mb-5">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-3">
+                      <h4 className="text-sm font-bold text-slate-900 font-mono tracking-tight uppercase">{alert.tracking_number}</h4>
+                      <div className="px-3 py-1 bg-red-600 text-[10px] font-bold text-white rounded-full uppercase shadow-md shadow-red-200">
                         {alert.estimated_delay_hours || "High Risk"}
                       </div>
                     </div>
-                    <p className="text-[10px] text-red-500 font-bold uppercase tracking-widest">Risk Level: {alert.risk_level}</p>
+                    <p className="text-xs text-red-600 font-bold uppercase tracking-wide flex items-center gap-2">
+                      <span className="w-2 h-2 bg-red-600 rounded-full animate-ping" />
+                      Action Required
+                    </p>
                   </div>
                   <div className="flex gap-2">
                     <Button 
                       size="sm" 
-                      variant="secondary" 
-                      className="h-8 text-[10px] font-bold bg-white hover:bg-slate-100 text-slate-900 border-none shadow-sm"
                       onClick={() => handleAction(alert.id, "Acknowledged")}
                       disabled={loadingId === alert.id}
+                      className="h-9 px-4 bg-slate-900 hover:bg-black text-[11px] font-bold text-white rounded-lg"
                     >
-                      ACK
+                      APPROVE
                     </Button>
                     <Button 
                       size="sm" 
-                      variant="ghost" 
-                      className="h-8 text-[10px] font-bold text-slate-400 hover:text-red-500 hover:bg-red-50"
+                      variant="outline"
                       onClick={() => handleAction(alert.id, "Dismissed")}
                       disabled={loadingId === alert.id}
+                      className="h-9 px-4 text-[11px] font-bold text-slate-600 hover:text-red-600 border-slate-200 rounded-lg"
                     >
-                      EXIT
+                      DISMISS
                     </Button>
                   </div>
                 </div>
                 
-                {/* Reasoning Trace */}
-                <div className="bg-white rounded-lg p-3 shadow-sm">
-                  <p className="text-[10px] text-slate-400 uppercase font-bold mb-1 tracking-tighter text-left">AI Reasoning Trace</p>
-                  <p className="text-xs text-slate-600 leading-relaxed italic font-serif text-left">"{alert.message}"</p>
+                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-left mb-4">
+                  <p className="text-[10px] text-slate-500 uppercase font-bold mb-2 tracking-wide flex items-center gap-2">
+                    <Zap className="w-3 h-3 text-blue-500" />
+                    Agent Insight
+                  </p>
+                  <p className="text-sm text-slate-700 leading-relaxed font-medium">"{alert.message}"</p>
                 </div>
 
-                {/* Mitigation */}
-                <div className="flex items-start gap-3 bg-emerald-50 rounded-lg p-3 text-left">
-                  <span className="text-sm">💡</span>
+                <div className="flex items-start gap-4 bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-left">
+                  <div className="w-6 h-6 bg-emerald-600 rounded-full flex items-center justify-center shrink-0">
+                    <ArrowUpRight className="w-4 h-4 text-white" />
+                  </div>
                   <div>
-                    <p className="text-[10px] text-emerald-600 uppercase font-bold tracking-widest">Mitigation Protocol</p>
-                    <p className="text-xs text-emerald-900/80 leading-snug font-medium">{alert.mitigation_suggestion}</p>
+                    <p className="text-[10px] text-emerald-700 uppercase font-bold tracking-widest">Protocol Suggestion</p>
+                    <p className="text-sm text-emerald-900 leading-snug font-semibold mt-1">{alert.mitigation_suggestion}</p>
                   </div>
                 </div>
 
-                {/* Annotation Area */}
-                <div className="space-y-2 pt-2">
-                   <div className="flex justify-between items-center text-left">
-                     <p className="text-[9px] text-slate-400 uppercase font-bold tracking-widest">Internal Annotation</p>
-                   </div>
+                <div className="mt-5 pt-4 border-t border-slate-100">
                    <textarea
                     placeholder="Log manual intervention steps..."
-                    className="w-full text-xs p-3 rounded-xl border-none bg-white text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-1 focus:ring-red-100 transition-all resize-none shadow-sm"
+                    className="w-full text-sm p-4 rounded-xl border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all resize-none shadow-sm"
                     rows={2}
                     value={notes[alert.id] || ""}
                     onChange={(e) => setNotes(prev => ({ ...prev, [alert.id]: e.target.value }))}
