@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     ALERT_RECIPIENT_EMAIL: str = ""  # Your Resend-verified email for Day 1 testing
     SUPABASE_URL: str = ""
     SUPABASE_KEY: str = ""
+    INTERNAL_SECRET: str = "dev-secret-123"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

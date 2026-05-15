@@ -44,6 +44,9 @@ export const updateAlertStatus = async (alertId: string, status: string, notes?:
 };
 
 export const runOrchestrator = async () => {
-  const response = await api.post("/orchestrator/run");
+  const secret = process.env.NEXT_PUBLIC_INTERNAL_SECRET || "dev-secret-123";
+  const response = await api.post("/orchestrator/run", null, {
+    headers: { "X-Internal-Secret": secret }
+  });
   return response.data;
 };
