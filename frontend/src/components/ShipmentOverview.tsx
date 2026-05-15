@@ -23,6 +23,7 @@ export function ShipmentOverview({ shipments }: { shipments: any[] }) {
           <TableHeader>
             <TableRow>
               <TableHead>Tracking</TableHead>
+              <TableHead>Route</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Risk Level</TableHead>
               <TableHead>Last Notified</TableHead>
@@ -31,7 +32,7 @@ export function ShipmentOverview({ shipments }: { shipments: any[] }) {
           <TableBody>
             {shipments.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                <TableCell colSpan={5} className="text-center text-muted-foreground">
                   No active shipments
                 </TableCell>
               </TableRow>
@@ -39,6 +40,17 @@ export function ShipmentOverview({ shipments }: { shipments: any[] }) {
             {shipments.map((shipment) => (
               <TableRow key={shipment.id}>
                 <TableCell className="font-medium">{shipment.tracking_number}</TableCell>
+                <TableCell>
+                  <div className="text-xs">
+                    <span className="text-muted-foreground font-mono">FROM:</span> {shipment.city || "Pending..."}
+                    <div className="flex items-center gap-1 my-0.5">
+                      <div className="h-px bg-gray-300 dark:bg-gray-700 flex-1"></div>
+                      <span className="text-[10px]">✈️</span>
+                      <div className="h-px bg-gray-300 dark:bg-gray-700 flex-1"></div>
+                    </div>
+                    <span className="text-muted-foreground font-mono">TO:</span> {shipment.dest_city || "Resolving..."}
+                  </div>
+                </TableCell>
                 <TableCell>{shipment.status}</TableCell>
                 <TableCell>
                   <Badge variant={shipment.current_risk_level === "High" ? "destructive" : shipment.current_risk_level === "Medium" ? "outline" : "secondary"}>

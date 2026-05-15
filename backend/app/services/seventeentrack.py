@@ -8,7 +8,6 @@ REGISTER_URL = f"{BASE_URL}/track/v2.2/register"
 GETINFO_URL = f"{BASE_URL}/track/v1/gettrackinfo"
 
 # --- MOCK DATA ---
-# Simulates a 17TRACK response for a package stuck in a Memphis, TN hub
 MOCK_17TRACK_RESPONSE = {
     "code": 0,
     "data": {
@@ -27,6 +26,13 @@ MOCK_17TRACK_RESPONSE = {
                         "location": "Memphis, TN, US",
                         "stage": "InTransit",
                     },
+                    "shipping_info": {
+                        "recipient_address": {
+                            "city": "Miami",
+                            "state": "FL",
+                            "country": "US"
+                        }
+                    }
                 },
             }
         ],
@@ -57,15 +63,22 @@ def _sanitize(raw_accepted: dict) -> dict:
     track_info = raw_accepted.get("track_info", {})
     latest_status = track_info.get("latest_status", {})
     latest_event = track_info.get("latest_event", {})
+    shipping_info = track_info.get("shipping_info", {})
+    recipient = shipping_info.get("recipient_address", {})
 
     status = latest_status.get("status", "Unknown")
     sub_status = latest_status.get("sub_status", "Unknown")
     location_str = latest_event.get("location", "")
     city, state = _parse_location(location_str)
 
+    dest_city = recipient.get("city")
+    dest_state = recipient.get("state")
+
     return {
         "city": city,
         "state": state,
+        "dest_city": dest_city,
+        "dest_state": dest_state,
         # Combine status + substatus for richer context to the Judge
         "status_description": f"{status} ({sub_status})",
         # Include raw event description for the Thought Log

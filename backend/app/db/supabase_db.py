@@ -59,7 +59,7 @@ def get_shipment_by_id(shipment_id: str) -> dict | None:
     response = db.table("shipments").select("*").eq("id", shipment_id).execute()
     return response.data[0] if response.data else None
 
-def update_shipment_state(shipment_id: str, evaluation: JudgeEvaluation, new_status: str) -> bool:
+def update_shipment_state(shipment_id: str, evaluation: JudgeEvaluation, new_status: str, dest_city: str = None, dest_state: str = None) -> bool:
     db = get_db()
     current = get_shipment_by_id(shipment_id) or {}
     risk_changed = current.get("current_risk_level") != evaluation.risk_level
@@ -71,11 +71,14 @@ def update_shipment_state(shipment_id: str, evaluation: JudgeEvaluation, new_sta
             "current_risk_level": evaluation.risk_level,
             "status": new_status,
         })
-        db.table("shipments").update(update_payload).eq("id", shipment_id).execute()
-        return True
     
+    # Save destination if found and not already stored
+    if dest_city and not current.get("dest_city"):
+        update_payload["dest_city"] = dest_city
+        update_payload["dest_state"] = dest_state
+
     db.table("shipments").update(update_payload).eq("id", shipment_id).execute()
-    return False
+    return risk_changed or status_changed
 
 def mark_last_notified(shipment_id: str) -> None:
     db = get_db()
@@ -116,6 +119,7 @@ def create_alert(shipment_id: str, evaluation: JudgeEvaluation) -> str:
         "mitigation_suggestion": evaluation.mitigation_suggestion,
         "risk_level": evaluation.risk_level,
         "delay_probability": evaluation.delay_probability,
+        "estimated_delay_hours": evaluation.estimated_delay_hours,
         "status": "Active",
     }).execute()
     return response.data[0]["id"]

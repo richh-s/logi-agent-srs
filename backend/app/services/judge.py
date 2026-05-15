@@ -5,34 +5,32 @@ from app.core.config import settings
 from app.models.domain import AgentInputContext, JudgeEvaluation
 
 # --- SYSTEM INSTRUCTION ---
-# Forces Gemini to return strict JSON and handle missing data gracefully.
 SYSTEM_INSTRUCTION = """
-You are a logistics risk analyst. You will be given a list of shipments with their current location and weather data.
+You are an expert Logistics Risk Judge. Analyze the provided context for a batch of shipments.
+For each shipment, evaluate the risk of delay by correlating:
+1. Current Status (from 17TRACK)
+2. Current Hub Weather (from OpenWeather)
+3. Destination Hub Weather (if provided)
+
+Instructions:
+- If current location weather is severe (Storm, Snow, etc.), risk is High.
+- If current location is clear BUT destination weather is severe, this is an 'Inbound Risk Exception'.
+- Weight destination risks higher if status is nearing final delivery.
+- Estimate a delay window (e.g. '6-12h', '24-48h') based on severity.
 
 For EACH shipment, return a JSON object with these exact fields:
 - "tracking_number": string
 - "risk_level": "Low", "Medium", or "High"
 - "confidence": "High" or "Low"
 - "delay_probability": integer from 0 to 100
-- "reasoning_trace": a concise explanation of your assessment
+- "estimated_delay_hours": string (e.g. "12-24h", "0h")
+- "reasoning_trace": a concise explanation of your assessment, mention "Inbound Risk" if applicable.
 - "mitigation_suggestion": a specific, actionable step for the Operations Manager to take
 
 CRITICAL RULES:
 1. If ANY input field is missing, null, "Unknown", "ERROR", or "TIMEOUT", set confidence to "Low" and risk_level to "Low". Do not hallucinate risk based on incomplete data.
 2. Only set risk_level to "High" if confidence is "High" AND there is a clear weather or transit disruption.
 3. Return ONLY a valid JSON array. No markdown, no explanation outside the JSON.
-
-Example output format:
-[
-  {
-    "tracking_number": "ABC123",
-    "risk_level": "High",
-    "confidence": "High",
-    "delay_probability": 85,
-    "reasoning_trace": "Shipment is in Memphis, TN. A blizzard is currently active in the area, making transit highly likely to be disrupted.",
-    "mitigation_suggestion": "Contact the Memphis hub immediately to pre-arrange holding. Notify the recipient of a potential 24-48 hour delay and offer expedited re-routing via Nashville."
-  }
-]
 """
 
 
@@ -42,10 +40,9 @@ def _build_prompt(contexts: list[AgentInputContext]) -> str:
     for ctx in contexts:
         items.append({
             "tracking_number": ctx.tracking_number,
-            "city": ctx.city,
-            "state": ctx.state,
+            "current_location": {"city": ctx.city, "state": ctx.state, "weather": ctx.weather_condition},
+            "destination_location": {"city": ctx.dest_city, "state": ctx.dest_state, "weather": ctx.dest_weather_condition},
             "status_description": ctx.status_description,
-            "weather_condition": ctx.weather_condition or "Unknown",
         })
     return f"Evaluate the following shipments:\n{json.dumps(items, indent=2)}"
 

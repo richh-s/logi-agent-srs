@@ -106,9 +106,11 @@ async def run_orchestration_cycle(recipient_email: str) -> list[dict]:
 
     # --- STEP 5: ACTION & PERSISTENCE ---
     shipment_map = {s["tracking_number"]: s for s in active_shipments}
+    context_map = {c.tracking_number: c for c in contexts}
 
     for evaluation in evaluations:
         shipment = shipment_map.get(evaluation.tracking_number, {})
+        context = context_map.get(evaluation.tracking_number)
         shipment_id = shipment.get("id")
 
         print(f"\n[RESULT] Shipment {evaluation.tracking_number}: "
@@ -138,7 +140,12 @@ async def run_orchestration_cycle(recipient_email: str) -> list[dict]:
             entry["action_taken"] = "alert_sent"
 
             if not settings.MOCK_MODE and shipment_id:
-                db.update_shipment_state(shipment_id, evaluation, new_status=shipment.get("status", "InTransit"))
+                db.update_shipment_state(
+                    shipment_id, evaluation, 
+                    new_status=shipment.get("status", "InTransit"),
+                    dest_city=context.dest_city if context else None,
+                    dest_state=context.dest_state if context else None
+                )
                 db.create_alert(shipment_id, evaluation)
                 db.write_agent_log(
                     shipment_id=shipment_id,
@@ -154,7 +161,10 @@ async def run_orchestration_cycle(recipient_email: str) -> list[dict]:
 
             if not settings.MOCK_MODE and shipment_id:
                 changed = db.update_shipment_state(
-                    shipment_id, evaluation, new_status=shipment.get("status", "InTransit")
+                    shipment_id, evaluation, 
+                    new_status=shipment.get("status", "InTransit"),
+                    dest_city=context.dest_city if context else None,
+                    dest_state=context.dest_state if context else None
                 )
                 if changed:
                     db.write_agent_log(
