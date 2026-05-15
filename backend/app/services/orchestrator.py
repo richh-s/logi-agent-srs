@@ -4,7 +4,7 @@ from app.services.worker import collect_batch_contexts
 from app.services.judge import evaluate_batch
 from app.services.resend_client import send_high_risk_alert
 from app.models.domain import AgentInputContext, JudgeEvaluation
-from app.db import firestore as db
+from app.db import supabase_db as db
 
 # --- SUPPRESSION CONSTANTS ---
 ALERT_COOLDOWN_HOURS = 24

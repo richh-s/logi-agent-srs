@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.db import firestore as db
+from app.db import supabase_db as db
 from app.core.config import settings
 
 router = APIRouter()

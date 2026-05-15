@@ -79,7 +79,7 @@ async def evaluate_batch(contexts: list[AgentInputContext]) -> list[JudgeEvaluat
     prompt = _build_prompt(contexts)
 
     response = client.models.generate_content(
-        model="gemini-1.5-flash",
+        model="gemini-flash-latest",
         contents=prompt,
         config=types.GenerateContentConfig(
             system_instruction=SYSTEM_INSTRUCTION,
