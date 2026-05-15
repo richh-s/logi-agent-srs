@@ -1,6 +1,6 @@
-# Environment & secrets
+# Environment & secrets — ignore the real .env but allow .env.example
 .env
-*.env
+!.env.example
 
 # Python
 __pycache__/
