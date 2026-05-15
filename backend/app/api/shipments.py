@@ -47,6 +47,16 @@ async def manual_override(shipment_id: str, status: str):
     return {"status": "success", "shipment_id": shipment_id, "new_status": status}
 
 
+@router.delete("/{shipment_id}")
+async def delete_shipment(shipment_id: str):
+    """Allows users to remove a shipment from the monitor."""
+    if settings.MOCK_MODE:
+        return {"status": "success (mock)", "shipment_id": shipment_id}
+    
+    db.delete_shipment(shipment_id)
+    return {"status": "success", "shipment_id": shipment_id}
+
+
 @router.get("/{shipment_id}")
 async def get_shipment(shipment_id: str):
     """Returns a single shipment's full details by ID."""
