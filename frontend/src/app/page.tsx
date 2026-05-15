@@ -1,65 +1,113 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
+import { getShipments, getAlerts, runOrchestrator } from "@/lib/api";
+import { IntakeForm } from "@/components/IntakeForm";
+import { ShipmentOverview } from "@/components/ShipmentOverview";
+import { ActionCenter } from "@/components/ActionCenter";
+import { ThoughtLog } from "@/components/ThoughtLog";
+import { Button } from "@/components/ui/button";
+import { Play } from "lucide-react";
 
 export default function Home() {
+  const [shipments, setShipments] = useState<any[]>([]);
+  const [alerts, setAlerts] = useState<any[]>([]);
+  const [activeShipmentId, setActiveShipmentId] = useState<string | null>(null);
+  const [orchestratorRunning, setOrchestratorRunning] = useState(false);
+
+  const fetchDashboardData = async () => {
+    try {
+      const [shipmentsData, alertsData] = await Promise.all([
+        getShipments(),
+        getAlerts()
+      ]);
+      setShipments(shipmentsData.shipments || []);
+      setAlerts(alertsData.alerts || []);
+      
+      // Auto-select first shipment for logs if none selected
+      if (!activeShipmentId && shipmentsData.shipments?.length > 0) {
+        setActiveShipmentId(shipmentsData.shipments[0].id);
+      }
+    } catch (error) {
+      console.error("Failed to fetch dashboard data", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+    // Poll for updates every 10 seconds
+    const interval = setInterval(fetchDashboardData, 10000);
+    return () => clearInterval(interval);
+  }, [activeShipmentId]);
+
+  const handleRunOrchestrator = async () => {
+    setOrchestratorRunning(true);
+    try {
+      await runOrchestrator();
+      await fetchDashboardData();
+    } catch (error) {
+      console.error("Failed to run orchestrator", error);
+    } finally {
+      setOrchestratorRunning(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
+              Logistics Operations Agent
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400">
+              Autonomous transit monitoring and risk mitigation.
+            </p>
+          </div>
+          <Button 
+            onClick={handleRunOrchestrator} 
+            disabled={orchestratorRunning}
+            className="shadow-sm"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            <Play className="w-4 h-4 mr-2" />
+            {orchestratorRunning ? "Running Cycle..." : "Trigger Orchestrator"}
+          </Button>
         </div>
-      </main>
+
+        {/* Top Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="col-span-1">
+            <IntakeForm onShipmentAdded={fetchDashboardData} />
+          </div>
+          <div className="col-span-1 lg:col-span-2">
+            <ActionCenter alerts={alerts} onAlertUpdated={fetchDashboardData} />
+          </div>
+        </div>
+
+        {/* Bottom Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[500px]">
+          <div className="col-span-1 lg:col-span-2">
+            {/* Click to select a shipment for logs */}
+            <div onClick={(e) => {
+              const row = (e.target as HTMLElement).closest('tr');
+              if (row && shipments.length > 0) {
+                const index = Array.from(row.parentNode?.children || []).indexOf(row) - 1; // -1 for header row
+                if (index >= 0 && shipments[index]) {
+                  setActiveShipmentId(shipments[index].id);
+                }
+              }
+            }}>
+              <ShipmentOverview shipments={shipments} />
+            </div>
+          </div>
+          <div className="col-span-1 h-full">
+            <ThoughtLog activeShipmentId={activeShipmentId} />
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 }
