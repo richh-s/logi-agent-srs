@@ -19,6 +19,7 @@ class AgentInputContext(BaseModel):
     weather_condition: Optional[str] = None
 
 class JudgeEvaluation(BaseModel):
+    tracking_number: str
     risk_level: str = Field(description="'Low', 'Medium', or 'High'")
     confidence: str = Field(description="'High' or 'Low'. Set to 'Low' if any input is missing/error.")
     delay_probability: int = Field(description="0 to 100")
