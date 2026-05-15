@@ -53,7 +53,7 @@ def _should_send_alert(shipment: dict, evaluation: JudgeEvaluation) -> bool:
     return evaluation.risk_level == "High" and (is_escalation or is_cooldown_expired)
 
 
-async def run_orchestration_cycle(recipient_email: str) -> list[dict]:
+async def run_orchestration_cycle(recipient_email: str, target_shipment_id: str = None) -> list[dict]:
     """
     The Planner: orchestrates a full monitoring cycle.
     1. Loads the active shipment queue (Firestore or Mock).
@@ -68,6 +68,9 @@ async def run_orchestration_cycle(recipient_email: str) -> list[dict]:
     # --- STEP 1: PLANNER — Load active shipment queue ---
     if settings.MOCK_MODE:
         active_shipments = MOCK_SHIPMENTS
+    elif target_shipment_id:
+        shipment = db.get_shipment_by_id(target_shipment_id)
+        active_shipments = [shipment] if shipment else []
     else:
         active_shipments = db.get_planner_queue(limit=50)
 

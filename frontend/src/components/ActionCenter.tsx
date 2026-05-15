@@ -16,7 +16,6 @@ export function ActionCenter({ alerts, onAlertUpdated }: { alerts: any[], onAler
     try {
       await updateAlertStatus(id, status, notes[id]);
       onAlertUpdated();
-      // Clear note after action
       setNotes(prev => {
         const next = { ...prev };
         delete next[id];
@@ -32,65 +31,87 @@ export function ActionCenter({ alerts, onAlertUpdated }: { alerts: any[], onAler
   const activeAlerts = alerts.filter(a => a.status === "Active");
 
   return (
-    <Card className="h-full flex flex-col">
-      <CardHeader>
-        <CardTitle>Action Center</CardTitle>
-        <CardDescription>High risk events requiring manual review.</CardDescription>
+    <Card className="h-full border-none bg-transparent flex flex-col shadow-none">
+      <CardHeader className="px-6 py-4 flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
+            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+            Critical Exceptions
+          </CardTitle>
+          <CardDescription className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Manual Resolution Required</CardDescription>
+        </div>
       </CardHeader>
-      <CardContent className="flex-1 overflow-hidden">
+      <CardContent className="flex-1 overflow-hidden px-4 pb-4">
         <ScrollArea className="h-full pr-4">
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 mt-4">
             {activeAlerts.length === 0 && (
-              <p className="text-center text-muted-foreground text-sm py-4">No active alerts</p>
+              <div className="flex flex-col items-center justify-center py-12 opacity-30 text-center">
+                <span className="text-4xl mb-2 text-slate-900">🛡️</span>
+                <p className="text-xs font-mono uppercase tracking-widest text-slate-900">System Perimeter Secure<br/>No Active Breaches</p>
+              </div>
             )}
             {activeAlerts.map(alert => (
-              <div key={alert.id} className="border rounded-lg p-4 bg-red-50/50 dark:bg-red-950/10 space-y-3">
+              <div key={alert.id} className="relative overflow-hidden rounded-2xl bg-slate-50/50 p-5 space-y-4">
+                {/* Status Bar */}
                 <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="font-bold">{alert.tracking_number}</h4>
-                    <Badge variant="destructive" className="mt-1">High Risk ({alert.delay_probability}% Delay)</Badge>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-black text-slate-900 font-mono tracking-tighter">{alert.tracking_number}</h4>
+                      <div className="px-1.5 py-0.5 bg-red-600 text-[9px] font-bold text-white rounded uppercase">
+                        {alert.estimated_delay_hours || "High Risk"}
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-red-500 font-bold uppercase tracking-widest">Risk Level: {alert.risk_level}</p>
                   </div>
-                  <div className="space-x-2 flex">
+                  <div className="flex gap-2">
                     <Button 
                       size="sm" 
-                      variant="outline" 
+                      variant="secondary" 
+                      className="h-8 text-[10px] font-bold bg-white hover:bg-slate-100 text-slate-900 border-none shadow-sm"
                       onClick={() => handleAction(alert.id, "Acknowledged")}
                       disabled={loadingId === alert.id}
                     >
-                      Ack
+                      ACK
                     </Button>
                     <Button 
                       size="sm" 
                       variant="ghost" 
+                      className="h-8 text-[10px] font-bold text-slate-400 hover:text-red-500 hover:bg-red-50"
                       onClick={() => handleAction(alert.id, "Dismissed")}
                       disabled={loadingId === alert.id}
                     >
-                      Dismiss
+                      EXIT
                     </Button>
                   </div>
                 </div>
                 
-                <div className="text-sm">
-                  <p className="font-semibold text-gray-700 dark:text-gray-300">Reasoning:</p>
-                  <p className="text-gray-600 dark:text-gray-400 italic">"{alert.message}"</p>
+                {/* Reasoning Trace */}
+                <div className="bg-white rounded-lg p-3 shadow-sm">
+                  <p className="text-[10px] text-slate-400 uppercase font-bold mb-1 tracking-tighter text-left">AI Reasoning Trace</p>
+                  <p className="text-xs text-slate-600 leading-relaxed italic font-serif text-left">"{alert.message}"</p>
                 </div>
 
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold text-gray-500 uppercase">Internal Annotation</p>
-                  <textarea
-                    placeholder="Add notes for the team..."
-                    className="w-full text-xs p-2 rounded border border-gray-200 dark:border-gray-800 bg-white/50 dark:bg-black/20 focus:outline-none focus:ring-1 focus:ring-red-500"
+                {/* Mitigation */}
+                <div className="flex items-start gap-3 bg-emerald-50 rounded-lg p-3 text-left">
+                  <span className="text-sm">💡</span>
+                  <div>
+                    <p className="text-[10px] text-emerald-600 uppercase font-bold tracking-widest">Mitigation Protocol</p>
+                    <p className="text-xs text-emerald-900/80 leading-snug font-medium">{alert.mitigation_suggestion}</p>
+                  </div>
+                </div>
+
+                {/* Annotation Area */}
+                <div className="space-y-2 pt-2">
+                   <div className="flex justify-between items-center text-left">
+                     <p className="text-[9px] text-slate-400 uppercase font-bold tracking-widest">Internal Annotation</p>
+                   </div>
+                   <textarea
+                    placeholder="Log manual intervention steps..."
+                    className="w-full text-xs p-3 rounded-xl border-none bg-white text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-1 focus:ring-red-100 transition-all resize-none shadow-sm"
                     rows={2}
                     value={notes[alert.id] || ""}
                     onChange={(e) => setNotes(prev => ({ ...prev, [alert.id]: e.target.value }))}
                   />
-                </div>
-                
-                <div className="text-sm bg-white/80 dark:bg-black/40 p-2 rounded border border-green-200 dark:border-green-900 shadow-sm">
-                  <p className="font-semibold text-green-700 dark:text-green-400 flex items-center gap-1">
-                    <span className="text-lg">💡</span> Mitigation Suggestion:
-                  </p>
-                  <p className="text-green-600 dark:text-green-500 mt-1">{alert.mitigation_suggestion}</p>
                 </div>
               </div>
             ))}

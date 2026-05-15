@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     MOCK_MODE: bool = False
     GEMINI_API_KEY: str = ""
+    OPENROUTER_API_KEY: str = ""
     SEVENTEENTRACK_TOKEN: str = ""
     OPENWEATHER_API_KEY: str = ""
     RESEND_API_KEY: str = ""

@@ -59,6 +59,13 @@ def get_shipment_by_id(shipment_id: str) -> dict | None:
     response = db.table("shipments").select("*").eq("id", shipment_id).execute()
     return response.data[0] if response.data else None
 
+def delete_shipment(shipment_id: str) -> None:
+    """Removes a shipment. Cascading deletes should be handled by DB schema or manually if needed."""
+    db = get_db()
+    # Note: If foreign keys aren't set to CASCADE, we might need to delete logs/alerts first
+    # For now, we'll try a direct delete
+    db.table("shipments").delete().eq("id", shipment_id).execute()
+
 def update_shipment_state(shipment_id: str, evaluation: JudgeEvaluation, new_status: str, dest_city: str = None, dest_state: str = None) -> bool:
     db = get_db()
     current = get_shipment_by_id(shipment_id) or {}

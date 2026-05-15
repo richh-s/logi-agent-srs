@@ -43,10 +43,16 @@ export const updateAlertStatus = async (alertId: string, status: string, notes?:
   return response.data;
 };
 
-export const runOrchestrator = async () => {
+export const deleteShipment = async (shipmentId: string) => {
+  const response = await api.delete(`/shipments/${shipmentId}`);
+  return response.data;
+};
+
+export const runOrchestrator = async (shipmentId?: string) => {
   const secret = process.env.NEXT_PUBLIC_INTERNAL_SECRET || "dev-secret-123";
   const response = await api.post("/orchestrator/run", null, {
-    headers: { "X-Internal-Secret": secret }
+    headers: { "X-Internal-Secret": secret },
+    params: { shipment_id: shipmentId }
   });
   return response.data;
 };

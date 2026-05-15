@@ -28,42 +28,62 @@ export function ThoughtLog({ activeShipmentId }: { activeShipmentId: string | nu
     };
 
     fetchLogs();
-    
-    // Poll every 5 seconds for live feed
     const interval = setInterval(fetchLogs, 5000);
     return () => clearInterval(interval);
   }, [activeShipmentId]);
 
   return (
-    <Card className="h-full flex flex-col bg-slate-950 text-slate-50 border-slate-800">
-      <CardHeader className="border-b border-slate-800 pb-4">
-        <CardTitle className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-          Agent Thought Log
-        </CardTitle>
-        <CardDescription className="text-slate-400">
-          {activeShipmentId ? `Live reasoning traces for ${activeShipmentId}` : "Select a shipment to view logs"}
-        </CardDescription>
+    <Card className="h-full border-none bg-white flex flex-col overflow-hidden shadow-none">
+      <CardHeader className="px-6 py-4 flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="text-sm font-black text-slate-900 flex items-center gap-2 uppercase tracking-widest">
+            <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.3)]" />
+            Core Reasoning Log
+          </CardTitle>
+          <CardDescription className="text-[10px] text-slate-400 uppercase mt-1 font-semibold">
+            {activeShipmentId ? `Tracing ID: ${activeShipmentId.slice(0, 12)}...` : "Select node to initiate trace"}
+          </CardDescription>
+        </div>
+        <div className="flex gap-1">
+          <div className="w-2 h-2 rounded-full bg-slate-100"></div>
+          <div className="w-2 h-2 rounded-full bg-slate-100"></div>
+        </div>
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden p-0">
-        <ScrollArea className="h-full p-4">
-          <div className="flex flex-col gap-4 font-mono text-xs">
-            {loading && logs.length === 0 && <div className="text-slate-500">Loading traces...</div>}
-            {!loading && logs.length === 0 && activeShipmentId && (
-              <div className="text-slate-500">No traces available for this shipment.</div>
+        <ScrollArea className="h-full">
+          <div className="p-6 space-y-6 font-mono text-[11px]">
+            {logs.length === 0 && !loading && (
+              <div className="h-40 flex flex-col items-center justify-center opacity-20 text-center text-slate-900">
+                <span className="text-2xl mb-2">👁️‍🗨️</span>
+                <p className="uppercase tracking-widest">Awaiting Neural Link...</p>
+              </div>
             )}
             
-            {logs.map((log) => (
-              <div key={log.id} className="border-l-2 border-slate-700 pl-3 py-1 space-y-1">
-                <div className="flex justify-between text-slate-500">
-                  <span>[{new Date(log.timestamp).toLocaleTimeString()}]</span>
-                  <span className="text-blue-400">{log.action}</span>
+            {logs.map((log, i) => (
+              <div key={log.id} className="relative pl-6 group animate-in fade-in slide-in-from-left-2 duration-500">
+                <div className="absolute -left-1.5 top-0 w-3 h-3 rounded-full bg-slate-100 group-hover:bg-blue-500 transition-colors" />
+                
+                <div className="flex items-center justify-between mb-2">
+                  <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-[9px] font-bold uppercase">
+                    {log.action}
+                  </span>
+                  <span className="text-slate-400 font-bold tracking-tighter">
+                    {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </span>
                 </div>
-                <div className="text-slate-300 leading-relaxed">
+
+                <div className="text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl group-hover:bg-blue-50/50 transition-colors text-left">
                   {log.reasoning}
                 </div>
               </div>
             ))}
+            
+            {loading && (
+              <div className="flex items-center gap-2 text-blue-400 animate-pulse pl-6">
+                <span className="w-1 h-4 bg-blue-400 rounded-full animate-bounce"></span>
+                <span className="uppercase tracking-widest text-[9px] font-bold">Fetching latest intelligence...</span>
+              </div>
+            )}
           </div>
         </ScrollArea>
       </CardContent>
