@@ -69,7 +69,7 @@ async def run_orchestration_cycle(recipient_email: str) -> list[dict]:
     if settings.MOCK_MODE:
         active_shipments = MOCK_SHIPMENTS
     else:
-        active_shipments = db.get_active_shipments(limit=50)
+        active_shipments = db.get_planner_queue(limit=50)
 
     if not active_shipments:
         print("[PLANNER] 📭 No active shipments to monitor.")

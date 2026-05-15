@@ -29,6 +29,20 @@ def get_active_shipments(limit: int = 50) -> list[dict]:
     )
     return response.data
 
+def get_planner_queue(limit: int = 50) -> list[dict]:
+    """Returns only shipments that are NOT acknowledged or dismissed."""
+    db = get_db()
+    response = (
+        db.table("shipments")
+        .select("*")
+        .eq("manual_status", "Active")
+        .neq("status", "Delivered")
+        .order("last_checked_at")
+        .limit(limit)
+        .execute()
+    )
+    return response.data
+
 def create_shipment(tracking_number: str, courier: str) -> str:
     db = get_db()
     response = db.table("shipments").insert({
@@ -111,6 +125,9 @@ def get_all_alerts() -> list[dict]:
     response = db.table("alerts").select("*").order("created_at", desc=True).execute()
     return response.data
 
-def update_alert_status(alert_id: str, status: str) -> None:
+def update_alert_status(alert_id: str, status: str, notes: str = None) -> None:
     db = get_db()
-    db.table("alerts").update({"status": status}).eq("id", alert_id).execute()
+    data = {"status": status}
+    if notes:
+        data["notes"] = notes
+    db.table("alerts").update(data).eq("id", alert_id).execute()

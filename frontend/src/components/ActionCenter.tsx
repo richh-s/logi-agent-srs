@@ -9,12 +9,19 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function ActionCenter({ alerts, onAlertUpdated }: { alerts: any[], onAlertUpdated: () => void }) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [notes, setNotes] = useState<Record<string, string>>({});
 
   const handleAction = async (id: string, status: string) => {
     setLoadingId(id);
     try {
-      await updateAlertStatus(id, status);
+      await updateAlertStatus(id, status, notes[id]);
       onAlertUpdated();
+      // Clear note after action
+      setNotes(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
     } catch (error) {
       console.error("Failed to update alert", error);
     } finally {
@@ -65,12 +72,25 @@ export function ActionCenter({ alerts, onAlertUpdated }: { alerts: any[], onAler
                 
                 <div className="text-sm">
                   <p className="font-semibold text-gray-700 dark:text-gray-300">Reasoning:</p>
-                  <p className="text-gray-600 dark:text-gray-400">{alert.message}</p>
+                  <p className="text-gray-600 dark:text-gray-400 italic">"{alert.message}"</p>
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-gray-500 uppercase">Internal Annotation</p>
+                  <textarea
+                    placeholder="Add notes for the team..."
+                    className="w-full text-xs p-2 rounded border border-gray-200 dark:border-gray-800 bg-white/50 dark:bg-black/20 focus:outline-none focus:ring-1 focus:ring-red-500"
+                    rows={2}
+                    value={notes[alert.id] || ""}
+                    onChange={(e) => setNotes(prev => ({ ...prev, [alert.id]: e.target.value }))}
+                  />
                 </div>
                 
-                <div className="text-sm bg-white dark:bg-black/20 p-2 rounded border border-green-200 dark:border-green-900">
-                  <p className="font-semibold text-green-700 dark:text-green-400">Mitigation Suggestion:</p>
-                  <p className="text-green-600 dark:text-green-500">{alert.mitigation_suggestion}</p>
+                <div className="text-sm bg-white/80 dark:bg-black/40 p-2 rounded border border-green-200 dark:border-green-900 shadow-sm">
+                  <p className="font-semibold text-green-700 dark:text-green-400 flex items-center gap-1">
+                    <span className="text-lg">💡</span> Mitigation Suggestion:
+                  </p>
+                  <p className="text-green-600 dark:text-green-500 mt-1">{alert.mitigation_suggestion}</p>
                 </div>
               </div>
             ))}

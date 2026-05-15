@@ -36,9 +36,9 @@ export const getAlerts = async () => {
   return response.data;
 };
 
-export const updateAlertStatus = async (alertId: string, status: string) => {
+export const updateAlertStatus = async (alertId: string, status: string, notes?: string) => {
   const response = await api.post(`/alerts/${alertId}/action`, null, {
-    params: { status }
+    params: { status, notes }
   });
   return response.data;
 };
