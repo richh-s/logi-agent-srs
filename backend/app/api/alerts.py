@@ -27,14 +27,22 @@ async def get_alerts():
 
 
 @router.post("/{alert_id}/action")
-async def update_alert(alert_id: str, status: str):
+async def update_alert(alert_id: str, status: str, notes: str = None):
     """FR-8: Acknowledge or dismiss an alert from the Action Center."""
     valid = {"Acknowledged", "Dismissed"}
     if status not in valid:
         return {"error": f"Status must be one of: {valid}"}
 
     if settings.MOCK_MODE:
-        return {"status": "success (mock)", "alert_id": alert_id, "new_status": status}
+        return {"status": "success (mock)", "alert_id": alert_id, "new_status": status, "notes": notes}
 
-    db.update_alert_status(alert_id, status)
+    db.update_alert_status(alert_id, status, notes)
+    
+    # Sync: Also update the manual_status of the parent shipment to reflect the resolution
+    # Find the alert to get the shipment_id
+    alerts = db.get_all_alerts()
+    alert = next((a for a in alerts if a["id"] == alert_id), None)
+    if alert:
+        db.update_manual_status(alert["shipment_id"], status)
+
     return {"status": "success", "alert_id": alert_id, "new_status": status}
