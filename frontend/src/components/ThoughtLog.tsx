@@ -42,8 +42,10 @@ const cleanText = (text: string) => {
   return text
     .replace(/\\u2014/g, "—")
     .replace(/\\u2192/g, "→")
+    .replace(/\\u2794/g, "➔")
     .replace(/\u2014/g, "—")
-    .replace(/\u2192/g, "→");
+    .replace(/\u2192/g, "→")
+    .replace(/\u2794/g, "➔");
 };
 
 const formatBullets = (text: string) => {
@@ -114,14 +116,14 @@ export function ThoughtLog({ activeShipmentId }: { activeShipmentId: string | nu
         const accepted = data.accepted?.[0] || {};
         const trackInfo = accepted.track_info || {};
         const latestStatus = trackInfo.latest_status || {};
-        const shippingInfo = trackInfo.shipping_info || {};
         
         parsed.status = getStatusText(latestStatus.status || json.status_code);
-        parsed.location = json.simulated_route 
-          ? json.simulated_route.split("→")[0].trim() 
-          : `${shippingInfo.shipper_address?.city || ""}, ${shippingInfo.shipper_address?.state || ""}`.trim();
         
-        if (parsed.location === ",") parsed.location = "Syncing Hub...";
+        // Handle multiple arrow characters
+        const route = json.simulated_route || "";
+        parsed.location = route.split(/[\u2192\u2794➔→]/)[0].trim();
+        
+        if (!parsed.location || parsed.location === ",") parsed.location = "Syncing Hub...";
         parsed.weather = json.current_weather || "Syncing Weather...";
       } else {
         parsed.isAiReasoning = true;
@@ -158,7 +160,6 @@ export function ThoughtLog({ activeShipmentId }: { activeShipmentId: string | nu
             <button 
               onClick={toggleFullScreen}
               className="p-2.5 hover:bg-slate-100 rounded-full transition-colors text-slate-500 hover:text-blue-600"
-              title="Toggle Full Screen"
             >
               {isFullScreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
             </button>
@@ -168,13 +169,6 @@ export function ThoughtLog({ activeShipmentId }: { activeShipmentId: string | nu
         <CardContent className="flex-1 overflow-hidden p-0">
           <ScrollArea className="h-full">
             <div className="p-8 space-y-10 font-sans">
-              {logs.length === 0 && !loading && (
-                <div className="h-64 flex flex-col items-center justify-center text-center opacity-40">
-                  <Info className="w-10 h-10 mb-3 text-slate-300" />
-                  <p className="text-sm uppercase tracking-widest font-bold text-slate-400">Awaiting Data Connection...</p>
-                </div>
-              )}
-              
               <div className="relative border-l-2 border-slate-100 ml-3 pl-8 space-y-12">
                 {logs.map((log, i) => {
                   const parsed = parseLog(log);
@@ -223,10 +217,10 @@ export function ThoughtLog({ activeShipmentId }: { activeShipmentId: string | nu
                         )}
 
                         {parsed.isAiReasoning && (
-                          <div className={`p-6 rounded-2xl border ${getRiskColor(parsed.riskLevel)}`}>
+                          <div className={`p-6 rounded-2xl border ${getRiskColor(parsed.riskLevel)} shadow-sm`}>
                             <div className="flex items-center justify-between mb-4">
                               <h4 className="text-xs font-bold uppercase tracking-widest flex items-center gap-2">
-                                {isHighRisk ? <AlertTriangle className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+                                {isHighRisk ? <AlertTriangle className="w-4 h-4 text-red-500" /> : <ShieldCheck className="w-4 h-4 text-emerald-500" />}
                                 Agent Reasoning Trace
                               </h4>
                               {parsed.riskLevel && (
@@ -249,7 +243,15 @@ export function ThoughtLog({ activeShipmentId }: { activeShipmentId: string | nu
                             </button>
                             {devView[log.id] && (
                               <div className="mt-3 p-4 bg-slate-900 rounded-xl overflow-x-auto shadow-inner">
-                                <pre className="text-xs text-emerald-400 font-mono leading-relaxed">{cleanText(parsed.raw)}</pre>
+                                <pre className="text-xs text-emerald-400 font-mono leading-relaxed">
+                                  {(() => {
+                                    try {
+                                      return JSON.stringify(JSON.parse(cleanText(parsed.raw)), null, 2);
+                                    } catch (e) {
+                                      return cleanText(parsed.raw);
+                                    }
+                                  })()}
+                                </pre>
                               </div>
                             )}
                           </div>
@@ -262,11 +264,6 @@ export function ThoughtLog({ activeShipmentId }: { activeShipmentId: string | nu
             </div>
           </ScrollArea>
         </CardContent>
-
-        <div className="px-8 py-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center opacity-60">
-          <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-500">Node Trace ID: {activeShipmentId || "NONE"}</span>
-          <span className="text-[10px] font-mono font-bold text-slate-500">&copy; 2026 LOGI-AGENT SYSTEM</span>
-        </div>
       </Card>
     </div>
   );

@@ -60,13 +60,10 @@ def get_shipment_by_id(shipment_id: str) -> dict | None:
     return response.data[0] if response.data else None
 
 def delete_shipment(shipment_id: str) -> None:
-    """Removes a shipment. Cascading deletes should be handled by DB schema or manually if needed."""
     db = get_db()
-    # Note: If foreign keys aren't set to CASCADE, we might need to delete logs/alerts first
-    # For now, we'll try a direct delete
     db.table("shipments").delete().eq("id", shipment_id).execute()
 
-def update_shipment_state(shipment_id: str, evaluation: JudgeEvaluation, new_status: str, dest_city: str = None, dest_state: str = None) -> bool:
+def update_shipment_state(shipment_id: str, evaluation: JudgeEvaluation, new_status: str, city: str = None, state: str = None, dest_city: str = None, dest_state: str = None) -> bool:
     db = get_db()
     current = get_shipment_by_id(shipment_id) or {}
     risk_changed = current.get("current_risk_level") != evaluation.risk_level
@@ -79,10 +76,10 @@ def update_shipment_state(shipment_id: str, evaluation: JudgeEvaluation, new_sta
             "status": new_status,
         })
     
-    # Save destination if found and not already stored
-    if dest_city and not current.get("dest_city"):
-        update_payload["dest_city"] = dest_city
-        update_payload["dest_state"] = dest_state
+    if city and state and dest_city and dest_state:
+        update_payload["current_location"] = f"{city}, {state} ➔ {dest_city}, {dest_state}"
+    elif city and state:
+        update_payload["current_location"] = f"{city}, {state}"
 
     db.table("shipments").update(update_payload).eq("id", shipment_id).execute()
     return risk_changed or status_changed
@@ -125,8 +122,6 @@ def create_alert(shipment_id: str, evaluation: JudgeEvaluation) -> str:
         "message": evaluation.reasoning_trace,
         "mitigation_suggestion": evaluation.mitigation_suggestion,
         "risk_level": evaluation.risk_level,
-        "delay_probability": evaluation.delay_probability,
-        "estimated_delay_hours": evaluation.estimated_delay_hours,
         "status": "Active",
     }).execute()
     return response.data[0]["id"]

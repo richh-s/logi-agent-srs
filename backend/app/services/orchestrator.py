@@ -25,13 +25,6 @@ MOCK_SHIPMENTS = [
 
 
 def _should_send_alert(shipment: dict, evaluation: JudgeEvaluation) -> bool:
-    """
-    The Suppression Logic Gate.
-    Triggers an alert only if:
-      1. The shipment has NOT been manually acknowledged, AND
-      2. The new risk has escalated beyond the last known risk, OR
-         it has been more than 24 hours since the last alert.
-    """
     if shipment.get("manual_status") == "Acknowledged":
         print(f"[SUPPRESSION] ⏭️  Skipping {evaluation.tracking_number} — manually acknowledged.")
         return False
@@ -54,14 +47,6 @@ def _should_send_alert(shipment: dict, evaluation: JudgeEvaluation) -> bool:
 
 
 async def run_orchestration_cycle(recipient_email: str, target_shipment_id: str = None) -> list[dict]:
-    """
-    The Planner: orchestrates a full monitoring cycle.
-    1. Loads the active shipment queue (Firestore or Mock).
-    2. Passes all shipments through the Worker (17TRACK + OpenWeather).
-    3. Logs raw 17TRACK JSON to Thought Log for auditability (FR-7).
-    4. Passes sanitized contexts to the Judge (batched Gemini call).
-    5. Applies suppression logic and persists all results to Firestore.
-    """
     print("\n[ORCHESTRATOR] 🔄 Starting monitoring cycle...")
     action_log = []
 
@@ -132,18 +117,32 @@ async def run_orchestration_cycle(recipient_email: str, target_shipment_id: str 
             entry["action_taken"] = "alert_sent"
 
             if not settings.MOCK_MODE and shipment_id:
-                db.update_shipment_state(
-                    shipment_id, evaluation, 
-                    new_status=shipment.get("status", "InTransit"),
-                    dest_city=context.dest_city if context else None,
-                    dest_state=context.dest_state if context else None
-                )
-                db.create_alert(shipment_id, evaluation)
-                db.write_agent_log(
-                    shipment_id=shipment_id,
-                    action="High Risk Alert Sent",
-                    reasoning=f"Agent confirmed high risk disruption. Reasoning: {evaluation.reasoning_trace}",
-                )
+                try:
+                    db.update_shipment_state(
+                        shipment_id, evaluation, 
+                        new_status=context.status_description if context else "InTransit",
+                        city=context.city if context else None,
+                        state=context.state if context else None,
+                        dest_city=context.dest_city if context else None,
+                        dest_state=context.dest_state if context else None
+                    )
+                except Exception as e:
+                    print(f"[ORCHESTRATOR] ⚠️ Error updating state: {e}")
+                
+                try:
+                    db.create_alert(shipment_id, evaluation)
+                except Exception as e:
+                    print(f"[ORCHESTRATOR] ⚠️ Error creating alert: {e}")
+                
+                try:
+                    db.write_agent_log(
+                        shipment_id=shipment_id,
+                        action="High Risk Alert Sent",
+                        reasoning=f"Agent confirmed high risk disruption. Reasoning: {evaluation.reasoning_trace}",
+                    )
+                except Exception as e:
+                    print(f"[ORCHESTRATOR] ⚠️ Error logging alert: {e}")
+
                 if alert_sent:
                     db.mark_last_notified(shipment_id)
 
@@ -152,23 +151,30 @@ async def run_orchestration_cycle(recipient_email: str, target_shipment_id: str 
             entry["action_taken"] = "suppressed"
 
             if not settings.MOCK_MODE and shipment_id:
-                # Log the suppression reason for visibility (Auditability)
                 supp_reason = "Risk level unchanged or alert cooldown active."
                 if shipment.get("manual_status") == "Acknowledged":
                     supp_reason = "Shipment manually acknowledged by operator."
                 
-                db.write_agent_log(
-                    shipment_id=shipment_id,
-                    action="Alert Bypassed",
-                    reasoning=f"Agent bypassed notification to prevent alert fatigue. Reason: {supp_reason}"
-                )
+                try:
+                    db.write_agent_log(
+                        shipment_id=shipment_id,
+                        action="Alert Bypassed",
+                        reasoning=f"Agent bypassed notification to prevent alert fatigue. Reason: {supp_reason}"
+                    )
+                except Exception as e:
+                    pass
 
-                db.update_shipment_state(
-                    shipment_id, evaluation, 
-                    new_status=shipment.get("status", "InTransit"),
-                    dest_city=context.dest_city if context else None,
-                    dest_state=context.dest_state if context else None
-                )
+                try:
+                    db.update_shipment_state(
+                        shipment_id, evaluation, 
+                        new_status=context.status_description if context else "InTransit",
+                        city=context.city if context else None,
+                        state=context.state if context else None,
+                        dest_city=context.dest_city if context else None,
+                        dest_state=context.dest_state if context else None
+                    )
+                except Exception as e:
+                    print(f"[ORCHESTRATOR] ⚠️ Error updating state: {e}")
 
         action_log.append(entry)
 
